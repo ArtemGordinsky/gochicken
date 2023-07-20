@@ -4,7 +4,6 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
-	"image/color"
 	"log"
 )
 
@@ -13,6 +12,7 @@ const (
 	screenWidth, screenHeight = 640, 480
 	chickenSize               = 50
 	jumpVelocity              = 4
+	groundHeight              = 111
 )
 
 // Game holds the game state.
@@ -21,13 +21,17 @@ type Game struct {
 	vy                 float64 // Vertical speed.
 	chickenImage       *ebiten.Image
 	directionRight     bool
+	backgroundImage    *ebiten.Image
+	backgroundX        float64
+	bottomY            float64
 }
 
 // NewGame initializes a new game state.
 func NewGame() *Game {
 	g := &Game{}
 	g.chickenX = 0
-	g.chickenY = screenHeight - chickenSize // Place the chicken at the bottom.
+	g.bottomY = screenHeight - groundHeight - chickenSize
+	g.chickenY = g.bottomY
 	g.loadImages()
 	return g
 }
@@ -48,6 +52,7 @@ func (g *Game) handleInput() {
 			g.chickenX = screenWidth // Move to right edge if off the left edge
 		}
 		g.directionRight = false
+		g.backgroundX += 1 // Move the background to the right
 	}
 	// Move the chicken to right.
 	if ebiten.IsKeyPressed(ebiten.KeyRight) {
@@ -56,6 +61,7 @@ func (g *Game) handleInput() {
 			g.chickenX = -chickenSize // Move to left edge if off the right edge
 		}
 		g.directionRight = true
+		g.backgroundX -= 1 // Move the background to the left
 	}
 	// Make the chicken jump.
 	if inpututil.IsKeyJustPressed(ebiten.KeySpace) {
@@ -69,8 +75,8 @@ func (g *Game) applyPhysics() {
 	g.vy += 0.2
 	g.chickenY += g.vy
 	// Chicken hits the ground.
-	if g.chickenY > screenHeight-chickenSize {
-		g.chickenY = screenHeight - chickenSize
+	if g.chickenY > g.bottomY {
+		g.chickenY = g.bottomY
 		g.vy = 0
 	}
 }
@@ -84,14 +90,21 @@ func (g *Game) loadImages() {
 		}
 		g.chickenImage = chickenImage
 	}
+
+	backgroundImage, _, err := ebitenutil.NewImageFromFile("assets/bg.png")
+	if err != nil {
+		log.Fatalf("Failed to load background image: %v", err)
+	}
+	g.backgroundImage = backgroundImage
 }
 
 // Draw renders the game state.
 func (g *Game) Draw(screen *ebiten.Image) {
-	// Fill the background with white color.
-	screen.Fill(color.White)
-
+	// Draw the background.
 	op := &ebiten.DrawImageOptions{}
+	op.GeoM.Translate(g.backgroundX, 0)
+	screen.DrawImage(g.backgroundImage, op)
+
 	if g.directionRight {
 		op.GeoM.Scale(-0.5, 0.5) // Flip the chicken image when it moves to right.
 	} else {
